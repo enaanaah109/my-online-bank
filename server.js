@@ -30,7 +30,7 @@ function isAuthenticated(req, res, next) {
     res.redirect('/login');
 }
 
-// --- Customer Login Route (Bank of America Style) ---
+// --- Customer Login Route ---
 app.get('/login', (req, res) => {
     res.send(`
         <!DOCTYPE html>
@@ -130,7 +130,7 @@ app.post('/transfer', isAuthenticated, (req, res) => {
     res.redirect('/dashboard?success=true');
 });
 
-// --- Upgraded Customer Dashboard (Bank of America Aesthetic) ---
+// --- Customer Dashboard ---
 app.get('/dashboard', isAuthenticated, (req, res) => {
     const user = accounts.find(acc => acc.accountNumber === req.session.user.accountNumber);
     req.session.user = user;
@@ -264,7 +264,55 @@ app.get('/', (req, res) => {
     res.redirect('/login');
 });
 
-// --- Admin Console Interface (Completely isolated at /admin) ---
+// --- ADMIN FEATURES ---
+
+// Admin: Add a new user account
+app.post('/admin/add-user', (req, res) => {
+    const { name, username, password, initialBalance, accountNumber } = req.body;
+    
+    accounts.push({
+        id: accounts.length + 1,
+        name,
+        username,
+        password,
+        balance: parseFloat(initialBalance) || 0.00,
+        accountNumber
+    });
+
+    if (parseFloat(initialBalance) > 0) {
+        transactions.push({
+            id: transactions.length + 1,
+            account: accountNumber,
+            type: "Initial Deposit (Admin)",
+            amount: parseFloat(initialBalance),
+            date: new Date().toLocaleDateString()
+        });
+    }
+
+    res.redirect('/admin');
+});
+
+// Admin: Add money to a user's account
+app.post('/admin/add-funds', (req, res) => {
+    const { accountNumber, amount } = req.body;
+    const depositAmount = parseFloat(amount);
+    const targetAccount = accounts.find(acc => acc.accountNumber === accountNumber);
+
+    if (targetAccount && depositAmount > 0) {
+        targetAccount.balance += depositAmount;
+        transactions.push({
+            id: transactions.length + 1,
+            account: targetAccount.accountNumber,
+            type: "Admin Deposit",
+            amount: depositAmount,
+            date: new Date().toLocaleDateString()
+        });
+    }
+
+    res.redirect('/admin');
+});
+
+// --- Admin Console Interface (Full Management Features) ---
 app.get('/admin', (req, res) => {
     res.send(`
         <!DOCTYPE html>
@@ -273,11 +321,19 @@ app.get('/admin', (req, res) => {
             <title>Admin Console - SecureBank</title>
             <style>
                 body { font-family: Arial, sans-serif; margin: 0; background: #1a1a2e; color: #e1e1e6; }
-                .container { max-width: 1000px; margin: 40px auto; padding: 30px; background: #161622; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+                .container { max-width: 1100px; margin: 40px auto; padding: 30px; background: #161622; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
                 h1 { color: #e94560; margin-top: 0; }
+                h2 { color: #4ecca3; font-size: 18px; margin-top: 30px; border-bottom: 1px solid #2a2a40; padding-bottom: 8px; }
                 p { color: #8a8a9e; }
-                table { width: 100%; margin-top: 25px; border-collapse: collapse; background: #1f1f2e; border-radius: 6px; overflow: hidden; }
-                th, td { padding: 14px 18px; border-bottom: 1px solid #2a2a40; text-align: left; font-size: 14px; }
+                .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+                .admin-card { background: #1f1f2e; padding: 20px; border-radius: 6px; border: 1px solid #2a2a40; }
+                .form-group { margin-bottom: 12px; }
+                label { display: block; font-size: 12px; color: #8a8a9e; margin-bottom: 4px; font-weight: bold; }
+                input, select { width: 100%; padding: 8px; background: #161622; border: 1px solid #2a2a40; color: white; border-radius: 4px; box-sizing: border-box; font-size: 13px; }
+                button { background: #e94560; color: white; border: none; padding: 10px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 5px; }
+                button:hover { background: #d73852; }
+                table { width: 100%; margin-top: 15px; border-collapse: collapse; background: #1f1f2e; border-radius: 6px; overflow: hidden; }
+                th, td { padding: 12px 15px; border-bottom: 1px solid #2a2a40; text-align: left; font-size: 13px; }
                 th { background: #242438; color: #e94560; font-weight: bold; }
                 tr:last-child td { border-bottom: none; }
             </style>
@@ -285,7 +341,55 @@ app.get('/admin', (req, res) => {
         <body>
             <div class="container">
                 <h1>Admin Console</h1>
-                <p>System Management and Client Credentials Monitor</p>
+                <p>Complete System Management, Client Accounts, and Transactions Control</p>
+
+                <div class="admin-grid">
+                    <div class="admin-card">
+                        <h2>Add New Customer</h2>
+                        <form action="/admin/add-user" method="POST">
+                            <div class="form-group">
+                                <label>Full Name</label>
+                                <input type="text" name="name" required placeholder="e.g. Alex Johnson">
+                            </div>
+                            <div class="form-group">
+                                <label>Username ID</label>
+                                <input type="text" name="username" required placeholder="e.g. alexj">
+                            </div>
+                            <div class="form-group">
+                                <label>Password</label>
+                                <input type="text" name="password" required placeholder="e.g. pass123">
+                            </div>
+                            <div class="form-group">
+                                <label>Account Number</label>
+                                <input type="text" name="accountNumber" required placeholder="e.g. ACC1003">
+                            </div>
+                            <div class="form-group">
+                                <label>Initial Balance ($)</label>
+                                <input type="number" step="0.01" name="initialBalance" required placeholder="0.00">
+                            </div>
+                            <button type="submit">Create User Account</button>
+                        </form>
+                    </div>
+
+                    <div class="admin-card">
+                        <h2>Add Money to Account</h2>
+                        <form action="/admin/add-funds" method="POST">
+                            <div class="form-group">
+                                <label>Select Account Number</label>
+                                <select name="accountNumber" required>
+                                    ${accounts.map(acc => `<option value="${acc.accountNumber}">${acc.name} (${acc.accountNumber})</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Deposit Amount ($)</label>
+                                <input type="number" step="0.01" name="amount" required placeholder="0.00">
+                            </div>
+                            <button type="submit" style="background: #4ecca3; color: #161622;">Deposit Funds</button>
+                        </form>
+                    </div>
+                </div>
+
+                <h2>Registered Client Accounts</h2>
                 <table>
                     <thead>
                         <tr>
@@ -305,6 +409,32 @@ app.get('/admin', (req, res) => {
                                 <td><code>${acc.username}</code></td>
                                 <td><code>${acc.password}</code></td>
                                 <td>${acc.accountNumber}</td> <td style="color: #4ecca3; font-weight: bold;">$${acc.balance.toFixed(2)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+
+                <h2>All System Transactions Log</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Transaction ID</th>
+                            <th>Account Number</th>
+                            <th>Type / Description</th>
+                            <th>Amount</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${transactions.map(tx => `
+                            <tr>
+                                <td>${tx.id}</td>
+                                <td>${tx.account}</td>
+                                <td>${tx.type}</td>
+                                <td style="color: ${tx.amount >= 0 ? '#4ecca3' : '#e94560'}; font-weight: bold;">
+                                    ${tx.amount >= 0 ? '+' : ''}$${tx.amount.toFixed(2)}
+                                </td>
+                                <td>${tx.date}</td>
                             </tr>
                         `).join('')}
                     </tbody>
