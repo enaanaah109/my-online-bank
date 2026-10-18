@@ -1,12 +1,12 @@
 {
-  "name": "bofa-standalone-bank",
+  "name": "banking-app",
   "version": "1.0.0",
-  "description": "Standalone Node.js banking web app with separated admin and customer interfaces",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "express-session": "^1.18.0"
   }
 }
