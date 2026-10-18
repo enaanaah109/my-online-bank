@@ -30,39 +30,40 @@ function isAuthenticated(req, res, next) {
     res.redirect('/login');
 }
 
-// --- Customer Login Route ---
+// --- Customer Login Route (Bank of America Style) ---
 app.get('/login', (req, res) => {
     res.send(`
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Customer Login - SecureBank</title>
+            <title>Sign In - Bank of America (Secure)</title>
             <style>
-                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-                .login-card { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); width: 100%; max-width: 400px; }
-                h2 { color: #1a73e8; margin-bottom: 24px; text-align: center; }
+                body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+                .login-container { background: #fff; width: 100%; max-width: 380px; padding: 40px; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-top: 5px solid #da291c; }
+                .logo { font-size: 20px; font-weight: bold; color: #012169; margin-bottom: 30px; text-align: center; }
+                .logo span { color: #da291c; }
                 .form-group { margin-bottom: 20px; }
-                label { display: block; margin-bottom: 8px; color: #555; font-size: 14px; }
-                input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
-                button { width: 100%; background: #1a73e8; color: white; padding: 12px; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; font-weight: bold; }
-                button:hover { background: #1557b0; }
-                .error { color: #d93025; font-size: 13px; text-align: center; margin-bottom: 15px; }
+                label { display: block; font-size: 13px; color: #333; margin-bottom: 6px; font-weight: bold; }
+                input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+                button { width: 100%; background: #012169; color: white; padding: 12px; border: none; border-radius: 4px; font-size: 15px; font-weight: bold; cursor: pointer; }
+                button:hover { background: #001545; }
+                .error { background: #fde8e8; color: #c53030; padding: 10px; font-size: 13px; border-radius: 4px; margin-bottom: 20px; text-align: center; }
             </style>
         </head>
         <body>
-            <div class="login-card">
-                <h2>SecureBank Portal</h2>
-                ${req.query.error ? '<div class="error">Invalid username or password</div>' : ''}
+            <div class="login-container">
+                <div class="logo">Bank of <span>America</span></div>
+                ${req.query.error ? '<div class="error">Invalid User ID or Password.</div>' : ''}
                 <form action="/login" method="POST">
                     <div class="form-group">
-                        <label>Username</label>
+                        <label>User ID</label>
                         <input type="text" name="username" required placeholder="Enter username">
                     </div>
                     <div class="form-group">
                         <label>Password</label>
                         <input type="password" name="password" required placeholder="Enter password">
                     </div>
-                    <button type="submit">Sign In</button>
+                    <button type="submit">Log In</button>
                 </form>
             </div>
         </body>
@@ -94,7 +95,6 @@ app.post('/transfer', isAuthenticated, (req, res) => {
     const transferAmount = parseFloat(amount);
     const currentUser = req.session.user;
 
-    // Find current user in the main accounts array to update balance directly
     const sender = accounts.find(acc => acc.accountNumber === currentUser.accountNumber);
     const recipient = accounts.find(acc => acc.accountNumber === recipientAccount);
 
@@ -106,7 +106,6 @@ app.post('/transfer', isAuthenticated, (req, res) => {
         return res.redirect('/dashboard?error=insufficient_funds');
     }
 
-    // Deduct from sender
     sender.balance -= transferAmount;
     transactions.push({
         id: transactions.length + 1,
@@ -116,7 +115,6 @@ app.post('/transfer', isAuthenticated, (req, res) => {
         date: new Date().toLocaleDateString()
     });
 
-    // If recipient is within the same bank system, credit their account too
     if (recipient) {
         recipient.balance += transferAmount;
         transactions.push({
@@ -128,84 +126,87 @@ app.post('/transfer', isAuthenticated, (req, res) => {
         });
     }
 
-    // Update session user data
     req.session.user = sender;
     res.redirect('/dashboard?success=true');
 });
 
-// --- Upgraded Customer Dashboard ---
+// --- Upgraded Customer Dashboard (Bank of America Aesthetic) ---
 app.get('/dashboard', isAuthenticated, (req, res) => {
-    // Refresh user state from main array
     const user = accounts.find(acc => acc.accountNumber === req.session.user.accountNumber);
     req.session.user = user;
     const userTransactions = transactions.filter(t => t.account === user.accountNumber);
 
-    let messageHtml = '';
+    let alertHtml = '';
     if (req.query.error === 'insufficient_funds') {
-        messageHtml = '<div style="background:#fce8e6; color:#d93025; padding:12px; border-radius:6px; margin-bottom:20px; font-size:14px;">Error: Insufficient funds for this transfer.</div>';
+        alertHtml = '<div style="background:#fde8e8; color:#c53030; padding:12px; border-radius:4px; margin-bottom:20px; font-size:14px;">Transaction Failed: Insufficient available balance.</div>';
     } else if (req.query.error === 'invalid_amount') {
-        messageHtml = '<div style="background:#fce8e6; color:#d93025; padding:12px; border-radius:6px; margin-bottom:20px; font-size:14px;">Error: Please enter a valid transfer amount.</div>';
+        alertHtml = '<div style="background:#fde8e8; color:#c53030; padding:12px; border-radius:4px; margin-bottom:20px; font-size:14px;">Transaction Failed: Enter a valid transfer amount.</div>';
     } else if (req.query.success === 'true') {
-        messageHtml = '<div style="background:#e6f4ea; color:#137333; padding:12px; border-radius:6px; margin-bottom:20px; font-size:14px;">Success: Transfer completed successfully!</div>';
+        alertHtml = '<div style="background:#e6f4ea; color:#137333; padding:12px; border-radius:4px; margin-bottom:20px; font-size:14px;">Success: Your transfer was completed successfully.</div>';
     }
 
     res.send(`
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Dashboard - SecureBank</title>
+            <title>Accounts - Bank of America</title>
             <style>
-                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: #f8f9fa; color: #333; }
-                .navbar { background: #fff; padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-                .navbar h2 { margin: 0; color: #1a73e8; }
-                .logout-btn { background: #f1f3f4; color: #d93025; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px; }
-                .logout-btn:hover { background: #fce8e6; }
-                .container { max-width: 900px; margin: 40px auto; padding: 0 20px; }
-                .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-                .card { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-                .card h3 { margin-top: 0; color: #5f6368; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
-                .balance { font-size: 32px; font-weight: bold; color: #202124; margin-top: 10px; }
-                .account-info { font-size: 14px; color: #5f6368; margin-top: 5px; }
-                .section-title { font-size: 18px; font-weight: 600; margin-bottom: 15px; color: #202124; }
-                .transfer-form { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 30px; }
-                .form-row { display: flex; gap: 15px; margin-bottom: 15px; }
-                .form-group { flex: 1; }
-                label { display: block; margin-bottom: 6px; font-size: 13px; color: #5f6368; font-weight: 600; }
-                input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
-                button { background: #1a73e8; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; font-weight: bold; }
-                button:hover { background: #1557b0; }
-                table { width: 100%; background: #fff; border-radius: 12px; border-collapse: collapse; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-                th, td { padding: 15px 20px; text-align: left; border-bottom: 1px solid #f1f3f4; font-size: 14px; }
-                th { background: #f8f9fa; color: #5f6368; font-weight: 600; }
-                tr:last-child td { border-bottom: none; }
-                .amount-positive { color: #137333; font-weight: 600; }
-                .amount-negative { color: #d93025; font-weight: 600; }
+                body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f8; color: #333; }
+                .header { background: #012169; color: white; padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid #da291c; }
+                .logo { font-size: 22px; font-weight: bold; }
+                .logo span { color: #da291c; }
+                .user-info { font-size: 14px; display: flex; align-items: center; gap: 20px; }
+                .logout-btn { color: white; text-decoration: none; background: rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 13px; }
+                .logout-btn:hover { background: rgba(255,255,255,0.25); }
+                .main-container { max-width: 1000px; margin: 30px auto; padding: 0 20px; }
+                .accounts-card { background: white; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 25px; border-top: 3px solid #012169; overflow: hidden; }
+                .account-header { padding: 20px; background: #fafbfc; border-bottom: 1px solid #e1e4e8; display: flex; justify-content: space-between; align-items: center; }
+                .account-body { padding: 20px; display: flex; justify-content: space-between; align-items: center; }
+                .balance-amount { font-size: 28px; font-weight: bold; color: #012169; }
+                .grid-section { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 30px; }
+                .card { background: white; padding: 25px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+                .card h3 { margin-top: 0; color: #012169; font-size: 16px; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px; }
+                .form-group { margin-bottom: 15px; }
+                label { display: block; font-size: 12px; font-weight: bold; color: #555; margin-bottom: 5px; }
+                input { width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+                .btn-transfer { background: #da291c; color: white; border: none; padding: 10px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%; }
+                .btn-transfer:hover { background: #b51f14; }
+                table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e1e4e8; font-size: 13px; }
+                th { background: #f4f6f8; color: #012169; font-weight: bold; }
+                .positive { color: #107c41; font-weight: bold; }
+                .negative { color: #a80000; font-weight: bold; }
             </style>
         </head>
         <body>
-            <div class="navbar">
-                <h2>SecureBank</h2>
-                <a class="logout-btn" href="/logout">Sign Out</a>
+            <div class="header">
+                <div class="logo">Bank of <span>America</span></div>
+                <div class="user-info">
+                    <span>Welcome, <strong>${user.name}</strong></span>
+                    <a class="logout-btn" href="/logout">Sign Out</a>
+                </div>
             </div>
-            <div class="container">
-                ${messageHtml}
-                <div class="card-grid">
-                    <div class="card">
-                        <h3>Available Balance</h3>
-                        <div class="balance">$${user.balance.toFixed(2)}</div>
-                        <div class="account-info">Account: ${user.accountNumber}</div>
+
+            <div class="main-container">
+                ${alertHtml}
+
+                <div class="accounts-card">
+                    <div class="account-header">
+                        <strong>Checking Account (${user.accountNumber})</strong>
+                        <span style="color: #555; font-size: 13px;">Active</span>
                     </div>
-                    <div class="card" style="display: flex; flex-direction: column; justify-content: center;">
-                        <h3>Account Holder</h3>
-                        <div style="font-size: 20px; font-weight: bold; margin-top: 10px;">${user.name}</div>
-                        <div class="account-info">Status: <span style="color: #137333; font-weight: 600;">Active</span></div>
+                    <div class="account-body">
+                        <div>
+                            <div style="font-size: 12px; color: #666; text-transform: uppercase;">Available Balance</div>
+                            <div class="balance-amount">$${user.balance.toFixed(2)}</div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="transfer-form">
-                    <div class="section-title" style="margin-bottom:10px;">Transfer Money</div>
-                    <form action="/transfer" method="POST">
-                        <div class="form-row">
+                <div class="grid-section">
+                    <div class="card">
+                        <h3>Transfer Money</h3>
+                        <form action="/transfer" method="POST">
                             <div class="form-group">
                                 <label>Recipient Account Number</label>
                                 <input type="text" name="recipientAccount" required placeholder="e.g. ACC1002">
@@ -214,32 +215,44 @@ app.get('/dashboard', isAuthenticated, (req, res) => {
                                 <label>Amount ($)</label>
                                 <input type="number" step="0.01" name="amount" required placeholder="0.00">
                             </div>
-                        </div>
-                        <button type="submit">Send Funds</button>
-                    </form>
+                            <button type="submit" class="btn-transfer">Send Transfer</button>
+                        </form>
+                    </div>
+
+                    <div class="card">
+                        <h3>Quick Links</h3>
+                        <ul style="padding-left: 20px; line-height: 2.2; font-size: 14px; color: #012169;">
+                            <li><a href="#" style="color:#012169; text-decoration:none;">Statements & Documents</a></li>
+                            <li><a href="#" style="color:#012169; text-decoration:none;">Set Up Account Alerts</a></li>
+                            <li><a href="#" style="color:#012169; text-decoration:none;">Order Checkbooks</a></li>
+                            <li><a href="#" style="color:#012169; text-decoration:none;">Customer Support & Help</a></li>
+                        </ul>
+                    </div>
                 </div>
 
-                <div class="section-title">Transaction History</div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Description</th>
-                            <th>Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${userTransactions.length > 0 ? userTransactions.map(t => `
+                <div class="card">
+                    <h3>Recent Transaction History</h3>
+                    <table>
+                        <thead>
                             <tr>
-                                <td>${t.date}</td>
-                                <td>${t.type}</td>
-                                <td class="${t.amount >= 0 ? 'amount-positive' : 'amount-negative'}">
-                                    ${t.amount >= 0 ? '+' : ''}$${t.amount.toFixed(2)}
-                                </td>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Amount</th>
                             </tr>
-                        `).join('') : '<tr><td colspan="3" style="text-align:center; color:#70757a;">No recent transactions found.</td></tr>'}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            ${userTransactions.length > 0 ? userTransactions.map(t => `
+                                <tr>
+                                    <td>${t.date}</td>
+                                    <td>${t.type}</td>
+                                    <td class="${t.amount >= 0 ? 'positive' : 'negative'}">
+                                        ${t.amount >= 0 ? '+' : ''}$${t.amount.toFixed(2)}
+                                    </td>
+                                </tr>
+                            `).join('') : '<tr><td colspan="3" style="text-align:center; color:#777;">No transaction history available.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </body>
         </html>
@@ -251,7 +264,7 @@ app.get('/', (req, res) => {
     res.redirect('/login');
 });
 
-// --- Admin Console Interface ---
+// --- Admin Console Interface (Completely isolated at /admin) ---
 app.get('/admin', (req, res) => {
     res.send(`
         <!DOCTYPE html>
@@ -259,27 +272,27 @@ app.get('/admin', (req, res) => {
         <head>
             <title>Admin Console - SecureBank</title>
             <style>
-                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: #1a1a2e; color: #e1e1e6; }
-                .container { max-width: 1000px; margin: 40px auto; padding: 30px; background: #161622; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+                body { font-family: Arial, sans-serif; margin: 0; background: #1a1a2e; color: #e1e1e6; }
+                .container { max-width: 1000px; margin: 40px auto; padding: 30px; background: #161622; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
                 h1 { color: #e94560; margin-top: 0; }
                 p { color: #8a8a9e; }
-                table { width: 100%; margin-top: 25px; border-collapse: collapse; background: #1f1f2e; border-radius: 8px; overflow: hidden; }
+                table { width: 100%; margin-top: 25px; border-collapse: collapse; background: #1f1f2e; border-radius: 6px; overflow: hidden; }
                 th, td { padding: 14px 18px; border-bottom: 1px solid #2a2a40; text-align: left; font-size: 14px; }
-                th { background: #242438; color: #e94560; font-weight: 600; }
+                th { background: #242438; color: #e94560; font-weight: bold; }
                 tr:last-child td { border-bottom: none; }
             </style>
         </head>
         <body>
             <div class="container">
                 <h1>Admin Console</h1>
-                <p>Manage registered customer accounts and credentials.</p>
+                <p>System Management and Client Credentials Monitor</p>
                 <table>
                     <thead>
                         <tr>
                             <th>ID</th>
                             <th>Name</th>
                             <th>Username</th>
-                            <th>Password (Admin View)</th>
+                            <th>Password</th>
                             <th>Account #</th>
                             <th>Balance</th>
                         </tr>
